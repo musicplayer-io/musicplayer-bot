@@ -1,0 +1,14 @@
+{
+  "name": "musicplayerbot",
+  "version": "1.0.0",
+  "description": "Bot for the Music Player",
+  "main": "index.js",
+  "author": "Ilias Ismanalijev",
+  "license": "MIT",
+  "dependencies": {
+    "lodash": "^3.10.0",
+    "node-telegram-bot-api": "^0.4.0",
+    "youtube-dl": "^1.10.5",
+    "youtube-node": "^1.2.0"
+  }
+}
