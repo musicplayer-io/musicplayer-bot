@@ -5,20 +5,38 @@ _ = require "lodash"
 
 module.exports = 
 	Greet: _.template "
-		Hey <%= user %>! I'm a bot that helps you 🔍, ▶ and 💾 🎵. Feel free to say /help if you need any! ❤
+		Hey <%= user %>, I'm here to help you find and listen to great music 🎵 I'm the bot for www.musicplayer.io
+		\n
+		\nYou can /search for songs on Youtube.
+		\nOr you can look up a /reddit subreddit
+		\n
+		\nWhat do you wanna do?
 	"
 	Help: _.template "
-		Hey <%= user %>! I'm a bot that helps you 🔍, ▶ and 💾 🎵.
-		\n\n
-		/search - 🔍 🎶 \n
+		Hey <%= user %>, I'm here to help you find and listen to great music 🎵
+		\n
+		\nIf you have some feedback, let me know @illyism 🍺
+		\n
+		\n/search
+		\nSearches music on Youtube and lists a few options.
+		\nYou can type '/search <my favourite artist>' instead of going through my questions.
+		\n
+		\n/reddit
+		\nSearches for music links on a subreddit.
+		\nYou can type '/r/listentothis' or any other sub to search immediately.
 	"
 	Commands: _.template "
-		/search - 🔍 🎶 \n
-		/help - ❓
+		/search
+		\nSearches music on Youtube and lists a few options.
+		\nYou can type '/search <my favourite artist>' instead of going through my questions.
+		\n
+		\n/reddit
+		\nSearches for music links on a subreddit.
+		\nYou can type '/r/listentothis' or any other sub to search immediately.
 	"
 	Undefined: _.template "
-		Sorry, <%= user %> 👎\n
-		I didn't recognize your message.
+		Sorry, <%= user %> 💩
+		\nI didn't recognize your message.
 	"
 	SearchStart: _.template "
 		What do you want to listen to?
@@ -27,27 +45,49 @@ module.exports =
 		You should add a Youtube ID.
 	"
 	YoutubeResult: _.template "
-		<%= snippet.title %> \n
-		Channel: <%= snippet.channelTitle %>\n
-		Date: <%= new Date(snippet.publishedAt).toLocaleDateString() %>\n
-		\n
-		/<%=i%>
+		http://www.youtube.com/watch?v=<%= id.videoId %>
+		\n\n Download 🎵 /<%=i%>
 	"
 	YoutubeStarted: _.template "
-		Filename: <%= _filename %>\n
-		Size: <%= Math.round(size / 1000000) %>MB\n
-		⏳
+		Let's see...\n
+		\nFilename: <%= _filename %>
+		\nSize: <%= Math.round(size / 1000000) %>MB
+		
 	"
 	YoutubeDone: _.template "
-		Downloaded and converted! Let me send that to you...
+		Downloaded 👌 Let me convert and send that to you you 💤
 	"
-	YoutubeDownload: _.template """
-		Which of these <%= length %> do you want to listen to?\n
-		Or do you want to /cancel
-	"""
+	YoutubeDownload: _.template "
+		Which of these <%= length %> do you want to listen to?
+		\nOr you can /cancel instead.
+	"
+
+	YoutubeTooLarge: _.template "
+		That file is too large for me to send 😭
+		\nhttp://www.youtube.com/watch?v=<%= id %>
+	"
+	RedditStart: _.template "
+		What subreddit do you want to listen to? Here's a 🎲 selection of a few:
+		\n<% _.forEach(subs, function(sub) {%>/r_<%=sub%>\n<% }) %>
+	"
+	Reddit: _.template "
+		Looking for music on /r/<%= sub %>
+	"
+	RedditList: _.template "
+		Here are <%= list.length %> links I've found in /r/<%=sub%>
+	"
+	RedditLink: _.template "
+		<%= title %>
+		\n<%= score %> 💕 / 👤 <%= author %>
+		\n<%= url %>\n
+		<% if (id) { %>\n💾 /youtube_<%= id %><% } %>
+	"
+	RedditEmpty: _.template "
+		Didn't find anything that looks like a song 😥
+	"
 	Error: _.template "
-		CRITICAL MALFUNCTION 🐷\n
-		Try again?
+		CRITICAL MALFUNCTION 🐷
+		\nTry again?
 	"
 	Ok: _.template "
 		👍

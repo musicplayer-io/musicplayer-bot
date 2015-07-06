@@ -1,4 +1,3 @@
-get - Get a song
 search - Search for a song
 reddit - Search for songs something on Reddit
 help - Get help
