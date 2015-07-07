@@ -22,7 +22,10 @@ reddit = (sub, callback) ->
 	request.get "http://www.reddit.com/r/#{sub}/search.json?q=site%3Ayoutube&sort=new&restrict_sr=on&t=all",
 		(err, resp, body) ->
 			return callback false if err?
-			data = JSON.parse body
+			try
+				data = JSON.parse body
+			catch e
+				return callback false
 			return callback false if not data.data?
 			list = _.map data.data.children, (c) -> c.data
 			callback list
@@ -97,8 +100,13 @@ Commands =
 
 Replies =
 	Commands:
-		keyboard: [["/search", "/reddit"], ["/help", "/settings"]]
-		resize_keyboard: true
+		JSON.stringify
+			keyboard: [["/search", "/reddit"], ["/help", "/settings"]]
+			resize_keyboard: true
+			one_time_keyboard: true
+	Hide:
+		JSON.stringify
+			hide_keyboard: true
 
 searchYoutube = (text) ->
 	console.log "Searching", text
@@ -110,16 +118,24 @@ searchYoutube = (text) ->
 		@youtubeSongs = result.items
 		@sendYoutubeSelection()
 
-getYoutubeAudio = (youtubeId) ->
+getYoutubeAudio = (youtubeId, url) ->
 	@sendChatAction "record_audio"
-	video = youtubedl "http://www.youtube.com/watch?v=#{youtubeId}", ["--format=bestaudio"], { cwd: __dirname + "/downloads/" }
+	if youtubeId?
+		video = youtubedl "http://www.youtube.com/watch?v=#{youtubeId}", ["--format=bestaudio"], { cwd: __dirname + "/downloads/" }
+	else if url?
+		video = youtubedl url, ["--format=bestaudio"], { cwd: __dirname + "/downloads/" }
+	video.on "error", (err) =>
+		message = err.toString().split("\n")[1]
+		return @sendMessage Messages.Error msg: message.substr(message.indexOf("YouTube said:"))
+	video.on "exit", () =>
+		console.log "exit", arguments
 	video.on "info", (info) =>
 		if (info.size / 1000000) > 20
 			@sendMessage Messages.YoutubeTooLarge({id: youtubeId}), {disable_web_page_preview: true}
 			video.emit "end"
 			console.log "Download Cancelled"
 		else
-			@sendMessage Messages.YoutubeStarted info
+			@sendMessage Messages.YoutubeStarted info, {reply_markup: Replies.Hide}
 			console.log 'Download started', info._filename
 			fileLocation = "#{__dirname}/downloads/#{info._filename}"
 			fileStream = fs.createWriteStream(fileLocation)
@@ -150,7 +166,7 @@ class Chat extends EventEmitter
 		@readMessage msg
 
 	settings:
-		limit: 5
+		limit: 6
 
 	cancel: () ->
 		@mode = ""
@@ -161,8 +177,21 @@ class Chat extends EventEmitter
 		if @mode is "download"
 			return @cancel() if _.endsWith _.trim(msg), "cancel"
 
+		if @mode is "redditselection"
+			return @cancel() if _.endsWith _.trim(msg), "cancel"
+			item = _.find @redditList, (i) -> i.title is msg
+			if item?
+				@sendChatAction "typing"
+				return getYoutubeAudio.call @, null, item.url
+
 		if @mode is "youtubeselection"
 			return @cancel() if _.endsWith _.trim(msg), "cancel"
+
+			item = _.find @youtubeSongs, (i) -> i.snippet.title is msg
+			if item?
+				@sendMessage item.snippet.title + " it is."
+				return getYoutubeAudio.call @, item.id.videoId
+
 			words = _.words(msg)
 			if _.intersection(_.lower(words), ["first", "1", "one"]).length
 				getYoutubeAudio.call @, _.first(@youtubeSongs).id.videoId
@@ -182,7 +211,8 @@ class Chat extends EventEmitter
 			else if _.intersection(_.lower(words), ["last"]).length
 				@sendMessage "Last one? Okay, hold on."
 				getYoutubeAudio.call @, _.last(@youtubeSongs).id.videoId
-			@mode = ""
+			else
+				@sendMessage Messages.Undefined({user: @first_name})
 			return
 			
 		if not (_.startsWith msg, "/") and @mode is "search"
@@ -199,7 +229,8 @@ class Chat extends EventEmitter
 						reply_markup: Replies.Commands
 				
 				when "Undefined"
-					@sendMessage Messages.Undefined({user: @first_name})
+					@sendMessage Messages.Undefined({user: @first_name}),
+						reply_markup: Replies.Commands
 					@sendRandom()
 				
 				when "Help"
@@ -231,15 +262,29 @@ class Chat extends EventEmitter
 						if list is false
 							return @sendMessage Messages.RedditEmpty()
 						list = _.sample list, @settings.limit
-						@sendMessage Messages.RedditList {sub: arg1, list: list}
-						_.forEach list, (item) =>
-							item.id = getYoutubeID item.url
+						list = _.map list, (i) -> i.id = getYoutubeID i.url; i
+						@redditList = list
+						@sendMessage Messages.RedditList {sub: arg1, list: @redditList}
+						_.forEach @redditList, (item) =>
 							@sendMessage Messages.RedditLink item
+						setTimeout () =>
+							@sendMessage Messages.YoutubeDownload(@redditList),
+								reply_markup: JSON.stringify
+									keyboard: _.chunk _.map @redditList, (i) -> "#{i.title}"
+									resize_keyboard: true
+									one_time_keyboard: true
+						, 500
+						@mode = "redditselection"
 
 
 				when "RedditStart"
 					randomSelection = _.sample(_.shuffle(_.flatten(_.values(subs))), @settings.limit)
-					@sendMessage Messages.RedditStart {subs: randomSelection}
+					@sendMessage Messages.RedditStart({subs: randomSelection}),
+						reply_markup: JSON.stringify
+							keyboard: _.chunk (_.map randomSelection, (i) -> "/r/#{i}"), 2
+							resize_keyboard: true
+							one_time_keyboard: true
+
 				
 				when "Search"
 					@sendChatAction "typing"
@@ -253,13 +298,15 @@ class Chat extends EventEmitter
 		@mode = "youtubeselection"
 		setTimeout () =>
 			@sendMessage Messages.YoutubeDownload(@youtubeSongs),
-				keyboard: _.mapKeys @youtubeSongs, (i) -> "/#{i}"
+				reply_markup: JSON.stringify
+					keyboard: _.chunk _.map @youtubeSongs, (i) -> "#{i.snippet.title}"
+					resize_keyboard: true
+					one_time_keyboard: true
 		, 500
 
 	sendMessage: (text, options) ->
 		if options?
 			@bot.sendMessage @id, text, options
-			# {reply_markup: replies}
 		else
 			@bot.sendMessage @id, text
 	sendChatAction: (action) ->

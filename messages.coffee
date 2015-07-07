@@ -67,8 +67,7 @@ module.exports =
 		\nhttp://www.youtube.com/watch?v=<%= id %>
 	"
 	RedditStart: _.template "
-		What subreddit do you want to listen to? Here's a 🎲 selection of a few:
-		\n<% _.forEach(subs, function(sub) {%>/r_<%=sub%>\n<% }) %>
+		What subreddit do you want to listen to? Here's a 🎲 selection.
 	"
 	Reddit: _.template "
 		Looking for music on /r/<%= sub %>
@@ -80,14 +79,13 @@ module.exports =
 		<%= title %>
 		\n<%= score %> 💕 / 👤 <%= author %>
 		\n<%= url %>\n
-		<% if (id) { %>\n💾 /youtube_<%= id %><% } %>
 	"
 	RedditEmpty: _.template "
 		Didn't find anything that looks like a song 😥
 	"
 	Error: _.template "
 		CRITICAL MALFUNCTION 🐷
-		\nTry again?
+		<% if (msg) { %>\n<%= msg %><% } %>
 	"
 	Ok: _.template "
 		👍
