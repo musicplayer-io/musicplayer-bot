@@ -252,7 +252,7 @@ class Chat extends EventEmitter
 					getYoutubeAudio.call @, arg1
 
 				when "SearchStart"
-					@sendMessage Messages.SearchStart()
+					@sendMessage Messages.SearchStart(), {reply_markup: Replies.Hide}
 					@mode = "search"
 
 				when "Reddit"
