@@ -17,6 +17,7 @@ chats = []
 
 bot.getMe().then (me) -> console.log(me)
 bot.on "message", (msg) ->
+	console.log msg.chat.id
 	chat = _.find chats, (c) -> c.id is msg.chat.id
 	if not msg.text?
 		msg.text = "/start"

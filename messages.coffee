@@ -3,7 +3,7 @@ _ = require "lodash"
 # /get - 💾 📲 \n
 # /reddit - 🔍 Reddit 🎶 \n
 
-module.exports = 
+module.exports =
 	Greet: _.template "
 		Hey <%= user %>, I'm here to help you find and listen to great music 🎵 I'm the bot for www.musicplayer.io
 		\n
@@ -52,7 +52,7 @@ module.exports =
 		Let's see...\n
 		\nFilename: <%= _filename %>
 		\nSize: <%= Math.round(size / 1000000) %>MB
-		
+
 	"
 	YoutubeDone: _.template "
 		Downloaded 👌 Let me convert and send that to you you 💤
@@ -86,6 +86,9 @@ module.exports =
 	Error: _.template "
 		CRITICAL MALFUNCTION 🐷
 		<% if (msg) { %>\n<%= msg %><% } %>
+	"
+	SettingsStart: _.template "
+		What setting you want to change?
 	"
 	Ok: _.template "
 		👍

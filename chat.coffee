@@ -55,6 +55,18 @@ parseCommand = (msg, cb) ->
 			cb Commands.Reddit, matches[2]
 		else
 			cb Commands.RedditStart
+	else if msg.match Commands.Settings.regex
+		matches = Commands.Settings.regex.exec msg
+		if matches[1]
+			cb Commands.Settings, matches[1]
+		else
+			cb Commands.SettingsStart
+	else if msg.match Commands.Player.regex
+		matches = Commands.Player.regex.exec msg
+		if matches[1]
+			cb Commands.Player, matches[1]
+		else
+			cb Commands.PlayerStart
 	else
 		cb Commands.Undefined
 
@@ -95,6 +107,16 @@ Commands =
 	Reddit:
 		regex: /\/(reddit|r\/|r\_)\s?(.*)/gm
 		type: "Reddit"
+	Player:
+		regex: /\/player\s?(.*)/gm
+		type: "Player"
+	PlayerStart:
+		type: "PlayerStart"
+	Settings:
+		regex: /\/settings\s?(.*)/gm
+		type: "Settings"
+	SettingsStart:
+		type: "SettingsStart"
 	RedditStart:
 		type: "RedditStart"
 
@@ -153,7 +175,7 @@ removeFile = (location) ->
 		return console.error err if err?
 		console.log "Download Removed", location
 
-catEmojis = "😺 😸 😻 😽 😼 🙀 😿 😹 😾".split(" ")
+catEmojis = ["😺", "😸", "😻", "😽", "😼", "🙀", "😿", "😹", "😾"]
 catEmoji = () ->
 	catEmojis[Math.floor(Math.random() * catEmojis.length)]
 
@@ -214,7 +236,7 @@ class Chat extends EventEmitter
 			else
 				@sendMessage Messages.Undefined({user: @first_name})
 			return
-			
+
 		if not (_.startsWith msg, "/") and @mode is "search"
 			@sendChatAction "typing"
 			searchYoutube.call @, msg
@@ -227,12 +249,12 @@ class Chat extends EventEmitter
 					@sendMessage Messages.Greet({user: @first_name}),
 						disable_web_page_preview: true
 						reply_markup: Replies.Commands
-				
+
 				when "Undefined"
 					@sendMessage Messages.Undefined({user: @first_name}),
 						reply_markup: Replies.Commands
 					@sendRandom()
-				
+
 				when "Help"
 					@sendMessage Messages.Help({user: @first_name}), {reply_markup: Replies.Commands}
 
@@ -243,7 +265,7 @@ class Chat extends EventEmitter
 					@sendMessage Messages.YoutubeEmpty()
 					@sendMessage Messages.SearchStart()
 					@mode = "search"
-				
+
 				when "YoutubeGet"
 					getYoutubeAudio.call @, arg1
 
@@ -285,11 +307,15 @@ class Chat extends EventEmitter
 							resize_keyboard: true
 							one_time_keyboard: true
 
-				
+
 				when "Search"
 					@sendChatAction "typing"
 					searchYoutube.call @, arg1
 					@mode = ""
+
+				when "SettingsStart"
+					@sendMessage Messages.SettingsStart()
+
 
 	sendYoutubeSelection: () ->
 		_.forEach @youtubeSongs, (item, i) =>
@@ -316,12 +342,12 @@ class Chat extends EventEmitter
 	sendPhoto: (audio) ->
 		@bot.sendPhoto @id, photo
 	sendRandom: () ->
-		
+
 		switch (Math.round Math.random() * 2)
 			when 1
 				console.log "cat facts!"
 				request.get "https://catfacts-api.appspot.com/api/facts", (err, resp, body) =>
 					@sendMessage catEmoji() + _.first(JSON.parse(body).facts)
-				
 
-module.exports = Chat	
+
+module.exports = Chat
