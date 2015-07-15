@@ -267,7 +267,7 @@ class Chat extends EventEmitter
 		@mode = "youtubeselection"
 		setTimeout () =>
 			keyboard = _.chunk _.map @youtubeSongs, (i) -> "#{i.snippet.title}"
-			keyboard.push "/cancel"
+			keyboard.push ["/cancel"]
 			@sendMessage Messages.YoutubeDownload(@youtubeSongs),
 				reply_markup: JSON.stringify
 					keyboard: keyboard

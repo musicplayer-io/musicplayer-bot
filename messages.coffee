@@ -88,7 +88,7 @@ module.exports =
 		<% if (msg) { %>\n<%= msg %><% } %>
 	"
 	SettingsStart: _.template "
-		What setting you want to change?
+		What setting do you want to change?
 	"
 	Ok: _.template "
 		👍
