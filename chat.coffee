@@ -1,22 +1,31 @@
 {EventEmitter} = require "events"
 _ = require "lodash"
+fs = require "fs"
+path = require('path')
+yaml = require "js-yaml"
+request = require "request"
 
-config = require "./config.js"
+# Bot
+config = require "./config.json"
 Messages = require "./messages"
+Replies = require "./replies"
+parseCommand = require "./commands"
+Commands = parseCommand.Commands
 
+# YouTube
 YouTube = require "youtube-node"
 youTube = new YouTube()
 youTube.setKey config.youtube
+youtubedl = require "youtube-dl"
 
-fs = require('fs')
-path = require('path')
-yaml = require "js-yaml"
-youtubedl = require('youtube-dl')
 
+# List of subreddits
 subs = yaml.safeLoad fs.readFileSync(path.join(__dirname, "/subreddits.yaml"), "utf8")
 
-request = require("request")
-
+# Gets listings from Reddit
+#
+# @param [String] sub The subreddit to search
+# @param [Function] callback Function to execute, returns a list
 reddit = (sub, callback) ->
 	sub = sub.trim()
 	request.get "http://www.reddit.com/r/#{sub}/search.json?q=site%3Ayoutube&sort=new&restrict_sr=on&t=all",
@@ -30,106 +39,16 @@ reddit = (sub, callback) ->
 			list = _.map data.data.children, (c) -> c.data
 			callback list
 
-parseCommand = (msg, cb) ->
-	if msg.match Commands.Help.regex
-		cb Commands.Help
-	else if msg.match Commands.YoutubeEmpty.regex
-		cb Commands.YoutubeEmpty
-	else if msg.match Commands.YoutubeGet.regex
-		matches = Commands.YoutubeGet.regex.exec msg
-		cb Commands.YoutubeGet, matches[1]
-	else if msg.match Commands.SearchStart.regex
-		cb Commands.SearchStart
-	else if msg.match Commands.Search.regex
-		matches = Commands.Search.regex.exec msg
-		cb Commands.Search, matches[1]
-	else if msg.match Commands.Commands.regex
-		cb Commands.Commands
-	else if msg.match(Commands.Greet.regex) or _.intersection(_.lower(_.words(msg)), ["hello", "hey", "yo", "hi", "greetings"]).length
-		cb Commands.Greet
-	else if msg.match Commands.YoutubeLink.regex
-		cb Commands.YoutubeLink, getYoutubeID(msg)
-	else if msg.match Commands.Reddit.regex
-		matches = Commands.Reddit.regex.exec msg
-		if matches[2]
-			cb Commands.Reddit, matches[2]
-		else
-			cb Commands.RedditStart
-	else if msg.match Commands.Settings.regex
-		matches = Commands.Settings.regex.exec msg
-		if matches[1]
-			cb Commands.Settings, matches[1]
-		else
-			cb Commands.SettingsStart
-	else if msg.match Commands.Player.regex
-		matches = Commands.Player.regex.exec msg
-		if matches[1]
-			cb Commands.Player, matches[1]
-		else
-			cb Commands.PlayerStart
-	else
-		cb Commands.Undefined
-
+# Get YouTube id from URL
+#
+# @param [String] url The URL to parse
 getYoutubeID = (url) ->
 	matches = Commands.YoutubeLink.regex.exec(url)
 	return matches[1] if matches? and matches[1]
 
-Commands =
-	Help:
-		regex: /^\/help/gm
-		type: "Help"
-	YoutubeEmpty:
-		regex: /^\/youtube?$/gm
-		type: "YoutubeEmpty"
-	YoutubeGet:
-		regex: /^\/youtube[ _](.*)$/gm
-		type: "YoutubeGet"
-	YoutubeLink:
-		regex: /(?:https?:\/\/)?(?:youtu\.be\/|(?:www\.)?youtube\.com\/watch(?:\.php)?\?.*v=)([a-zA-Z0-9\-_]+)/gm
-		type: "YoutubeLink"
-	SearchStart:
-		regex: /^\/search$/gm
-		type: "SearchStart"
-	Search:
-		regex: /^\/search (.*)/gm
-		type: "Search"
-	Undefined:
-		type: "Undefined"
-	Greet:
-		regex: /^\/start$/gm
-		type: "Greet"
-	Settings:
-		regex: /^\/start$/gm
-		type: "Settings"
-	Commands:
-		regex: /^\/commands$/gm
-		type: "Commands"
-	Reddit:
-		regex: /\/(reddit|r\/|r\_)\s?(.*)/gm
-		type: "Reddit"
-	Player:
-		regex: /\/player\s?(.*)/gm
-		type: "Player"
-	PlayerStart:
-		type: "PlayerStart"
-	Settings:
-		regex: /\/settings\s?(.*)/gm
-		type: "Settings"
-	SettingsStart:
-		type: "SettingsStart"
-	RedditStart:
-		type: "RedditStart"
-
-Replies =
-	Commands:
-		JSON.stringify
-			keyboard: [["/search", "/reddit"], ["/help", "/settings"]]
-			resize_keyboard: true
-			one_time_keyboard: true
-	Hide:
-		JSON.stringify
-			hide_keyboard: true
-
+# Searches YouTube
+#
+# @param [String] text Text query to search for
 searchYoutube = (text) ->
 	console.log "Searching", text
 	youTube.search text, @settings.limit, (err, result) =>
@@ -140,6 +59,10 @@ searchYoutube = (text) ->
 		@youtubeSongs = result.items
 		@sendYoutubeSelection()
 
+# Download audio from YouTube
+#
+# @option option [Number] youtubeId ID of the YouTube video
+# @option option [String] url URL of the YouTube video
 getYoutubeAudio = (youtubeId, url) ->
 	@sendChatAction "record_audio"
 	if youtubeId?
@@ -153,7 +76,10 @@ getYoutubeAudio = (youtubeId, url) ->
 		console.log "exit", arguments
 	video.on "info", (info) =>
 		if (info.size / 1000000) > 20
-			@sendMessage Messages.YoutubeTooLarge({id: youtubeId}), {disable_web_page_preview: true}
+			@sendMessage Messages.YoutubeTooLarge({id: youtubeId}),
+				disable_web_page_preview: true
+				reply_markup: Replies.Commands
+			@mode = ""
 			video.emit "end"
 			console.log "Download Cancelled"
 		else
@@ -170,16 +96,24 @@ getYoutubeAudio = (youtubeId, url) ->
 				@sendAudio fileLocation
 					.then (x) -> removeFile fileLocation
 
+# Remove downloaded file
+#
+# @param [String] location File path to the file
 removeFile = (location) ->
 	fs.unlink location, (err) ->
 		return console.error err if err?
 		console.log "Download Removed", location
 
-catEmojis = ["😺", "😸", "😻", "😽", "😼", "🙀", "😿", "😹", "😾"]
-catEmoji = () ->
-	catEmojis[Math.floor(Math.random() * catEmojis.length)]
-
+# Chat class
+#
+# @event message
 class Chat extends EventEmitter
+
+	# Construct a new chat
+	#
+	# @param [TelegramBot] bot The Telegram Bot to send messages to
+	# @param [Chat] chat A Telegram user
+	# @param [String] msg The first incoming message
 	constructor: (@bot, chat, msg) ->
 		_.assign @, chat
 		console.log "Hello", @id, @first_name
@@ -187,15 +121,23 @@ class Chat extends EventEmitter
 		@mode = ""
 		@readMessage msg
 
+	# Settings for this chat
 	settings:
 		limit: 6
 
+	# Cancel current operation and send Ok Message
 	cancel: () ->
 		@mode = ""
 		@sendMessage Messages.Ok()
 
+	# Reads the next incoming message
+	#
+	# @param [String] msg The next incoming message
 	readMessage: (msg) ->
 		console.log "@"+@first_name, msg
+		if @mode is "settings"
+			return @cancel() if _.endsWith _.trim(msg), "cancel"
+
 		if @mode is "download"
 			return @cancel() if _.endsWith _.trim(msg), "cancel"
 
@@ -215,19 +157,20 @@ class Chat extends EventEmitter
 				return getYoutubeAudio.call @, item.id.videoId
 
 			words = _.words(msg)
+			console.log _.intersection(_.lower(words), ["third", "3", "three"])
 			if _.intersection(_.lower(words), ["first", "1", "one"]).length
 				getYoutubeAudio.call @, _.first(@youtubeSongs).id.videoId
 				@sendMessage "First one it is."
 			else if _.intersection(_.lower(words), ["second", "2", "two"]).length
 				getYoutubeAudio.call @, @youtubeSongs[1].id.videoId
 				@sendMessage "Good choice, let me grab that for you."
-			else if _.intersection(_.lower(words), ["third", "3", "three"])
+			else if _.intersection(_.lower(words), ["third", "3", "three"]).length
 				getYoutubeAudio.call @, @youtubeSongs[2].id.videoId
 				@sendMessage "Alright, one music coming up."
-			else if _.intersection(_.lower(words), ["fourth", "four", "4"])
+			else if _.intersection(_.lower(words), ["fourth", "four", "4"]).length
 				getYoutubeAudio.call @, @youtubeSongs[3].id.videoId
 				@sendMessage "One moment."
-			else if _.intersection(_.lower(words), ["five", "5", "fifth"])
+			else if _.intersection(_.lower(words), ["five", "5", "fifth"]).length
 				getYoutubeAudio.call @, @youtubeSongs[4].id.videoId
 				@sendMessage "Okay then. You can wait now."
 			else if _.intersection(_.lower(words), ["last"]).length
@@ -270,7 +213,6 @@ class Chat extends EventEmitter
 					getYoutubeAudio.call @, arg1
 
 				when "YoutubeLink"
-					# @sendMessage Messages.ToutubeLink()
 					getYoutubeAudio.call @, arg1
 
 				when "SearchStart"
@@ -315,39 +257,65 @@ class Chat extends EventEmitter
 
 				when "SettingsStart"
 					@sendMessage Messages.SettingsStart()
+					@mode = "settings"
 
-
+	# Send songs found from searching YouTube
 	sendYoutubeSelection: () ->
 		_.forEach @youtubeSongs, (item, i) =>
 			item.i = i + 1;
 			@sendMessage Messages.YoutubeResult item
 		@mode = "youtubeselection"
 		setTimeout () =>
+			keyboard = _.chunk _.map @youtubeSongs, (i) -> "#{i.snippet.title}"
+			keyboard.push "/cancel"
 			@sendMessage Messages.YoutubeDownload(@youtubeSongs),
 				reply_markup: JSON.stringify
-					keyboard: _.chunk _.map @youtubeSongs, (i) -> "#{i.snippet.title}"
+					keyboard: keyboard
 					resize_keyboard: true
 					one_time_keyboard: true
 		, 500
 
+	# Send a message to the chat
+	#
+	# @param [String] text Text message to send
+	# @param [Object] options Additional message options
+	#
+	# @see https://core.telegram.org/bots/api#sendmessage
 	sendMessage: (text, options) ->
 		if options?
 			@bot.sendMessage @id, text, options
 		else
 			@bot.sendMessage @id, text
+
+	# Send a chat action
+	#
+	# @param [String] action Type of action to broadcast.
+	# Choose one, depending on what the user is about to receive:
+	# typing for text messages,
+	# upload_photo for photos,
+	# record_video or upload_video for videos,
+	# record_audio or upload_audio for audio files,
+	# upload_document for general files,
+	# find_location for location data.
 	sendChatAction: (action) ->
 		@bot.sendChatAction @id, action
+
+	# Send an audio file
+	#
+	# @param [String] audio File path to the audio file
+	# @param [String] caption An included caption
 	sendAudio: (audio, caption) ->
 		@bot.sendAudio @id, audio, {caption: caption}
-	sendPhoto: (audio) ->
-		@bot.sendPhoto @id, photo
-	sendRandom: () ->
 
+	# Send a random cat fact
+	sendRandom: () ->
+		catEmojis = ["😺", "😸", "😻", "😽", "😼", "🙀", "😿", "😹", "😾"]
+		catEmoji = catEmojis[Math.floor(Math.random() * catEmojis.length)]
 		switch (Math.round Math.random() * 2)
 			when 1
 				console.log "cat facts!"
 				request.get "https://catfacts-api.appspot.com/api/facts", (err, resp, body) =>
-					@sendMessage catEmoji() + _.first(JSON.parse(body).facts)
+					@sendMessage catEmoji + _.first(JSON.parse(body).facts)
 
 
 module.exports = Chat

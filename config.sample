@@ -1,4 +1,4 @@
-module.exports = {
-	token: "MYTOKEN",
-	youtube: "YOUTUBE_TOKEN"
-};
+{
+	"token": "MYTOKEN",
+	"youtube": "YOUTUBE_TOKEN"
+}

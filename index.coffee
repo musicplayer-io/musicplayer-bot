@@ -1,9 +1,10 @@
-TelegramBot = require("node-telegram-bot-api")
-config = require("./config.js")
+TelegramBot = require "node-telegram-bot-api"
+config = require "./config.json"
 token = config.token
-_ = require "lodash"
 
+_ = require "lodash"
 _.mixin
+	# Make an Array or String lowercase
 	lower: (o) ->
 		return o.toLowerCase() if _.isString(o)
 		_.map o, (s) ->
@@ -15,14 +16,19 @@ Messages = require "./messages"
 bot = new TelegramBot token, {polling: true}
 chats = []
 
-bot.getMe().then (me) -> console.log(me)
+bot.getMe().then (me) -> console.log me
 bot.on "message", (msg) ->
-	console.log msg.chat.id
 	chat = _.find chats, (c) -> c.id is msg.chat.id
+
+	# Ignore all non-text messages
 	if not msg.text?
 		msg.text = "/start"
+
+	# Send a message to the existing chat
 	if chat?
 		chat.emit "message", msg.text
+
+	# Create a new Chat and send the message
 	else
 		chats.push new Chat bot, msg.chat, msg.text
 
